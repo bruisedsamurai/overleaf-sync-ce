@@ -64,6 +64,12 @@ def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path
         os.chdir(sync_path)
 
         project_name = project_name or os.path.basename(os.getcwd())
+        
+        if project_name == "":
+            raise click.ClickException(
+                "Project name not specified. Please specify the Overleaf project name or use the default name of the sync directory.")
+        else: 
+            click.echo(f"Syncing project '{project_name}'")
         project = execute_action(
             lambda: overleaf_client.get_project(project_name),
             "Querying project",
@@ -354,17 +360,15 @@ def execute_action(action, progress_message, success_message, fail_message, verb
     with yaspin(text=progress_message, color="green") as spinner:
         try:
             success = action()
-        except:
-            if verbose_error_logging:
-                print(traceback.format_exc())
+        except Exception as e:
             success = False
-
-        if success:
-            spinner.write(success_message)
-            spinner.ok("✅ ")
-        else:
             spinner.fail("💥 ")
+            print(traceback.format_exc())
+            print(e)
             raise click.ClickException(fail_message)
+
+        spinner.write(success_message)
+        spinner.ok("✅ ")
 
         return success
 

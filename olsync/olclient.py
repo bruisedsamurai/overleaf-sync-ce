@@ -97,9 +97,20 @@ class OverleafClient(object):
         Returns: List of project objects
         """
         projects_page = reqs.get(self._PROJECT_URL, cookies=self._cookie)
-        json_content = json.loads(
-            BeautifulSoup(projects_page.content, 'html.parser').find('meta', {'name': 'ol-projects'}).get('content'))
-        return list(OverleafClient.filter_projects(json_content))
+        bsoup = BeautifulSoup(projects_page.content, 'html.parser')
+        projects_txt = bsoup.find('meta', {'name': 'ol-projects'})
+        if projects_txt is None:
+            projects_txt = bsoup.find('meta', {'name': 'ol-prefetchedProjectsBlob'})
+        
+        if projects_txt is None:
+            if "Log in to Overleaf" in bsoup.text:
+                raise ValueError("Not logged in")
+            raise ValueError("Projects not found")
+        
+        json_content = json.loads(projects_txt.get('content'))
+            
+        projects = list(OverleafClient.filter_projects(json_content["projects"]))
+        return list(OverleafClient.filter_projects(json_content["projects"]))
 
     def get_project(self, project_name):
         """
@@ -109,9 +120,16 @@ class OverleafClient(object):
         """
 
         projects_page = reqs.get(self._PROJECT_URL, cookies=self._cookie)
-        json_content = json.loads(
-            BeautifulSoup(projects_page.content, 'html.parser').find('meta', {'name': 'ol-projects'}).get('content'))
-        return next(OverleafClient.filter_projects(json_content, {"name": project_name}), None)
+        try:
+            json_content = json.loads(
+                BeautifulSoup(projects_page.content, 'html.parser').find('meta', {'name': 'ol-projects'}).get('content'))
+        except:
+            json_content = json.loads(
+                BeautifulSoup(projects_page.content, 'html.parser').find('meta', {'name': 'ol-prefetchedProjectsBlob'}).get('content')) 
+        project= next(OverleafClient.filter_projects(json_content["projects"], {"name": project_name}), None)
+        if project is None:
+            raise ValueError(f"Project {project_name} not found")
+        return project
 
     def download_project(self, project_id):
         """
@@ -244,8 +262,10 @@ class OverleafClient(object):
 
         # Upload the file to the predefined folder
         r = reqs.post(self._UPLOAD_URL.format(project_id), cookies=self._cookie, params=params, files=files)
-
-        return r.status_code == str(200) and json.loads(r.content)["success"]
+        ret = r.status_code == str(200) and json.loads(r.content)["success"]
+        if ret is False:
+            raise Exception(f"Failed to upload file {file_name} (code {r.status_code})")
+        return ret
 
     def delete_file(self, project_id, project_infos, file_name):
         """
