@@ -1,7 +1,9 @@
-# Overleaf-Sync
-### Easy Overleaf Two-Way Synchronization
+# Overleaf community edition sync
 
-![Made In Austria](https://img.shields.io/badge/Made%20in-Austria-%23ED2939.svg) ![PyPI - License](https://img.shields.io/pypi/l/overleaf-sync.svg) ![PyPI](https://img.shields.io/pypi/v/overleaf-sync.svg) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/overleaf-sync.svg)
+A working fork of [overleaf-sync](https://github.com/moritzgloeckl/overleaf-sync-ce) by moritzgloeckl, who has not been active for over 2 years. Btw the code is weirdly architected.
+I gathered 2 pull requests from ashmat98 (fix the upload) and mone27 (add Community Edition support), so thanks to them for their work.
+
+### Easy Overleaf Two-Way Synchronization
 
 This tool provides an easy way to synchronize Overleaf projects from and to your local computer. No paid account necessary.
 
@@ -16,24 +18,24 @@ This tool provides an easy way to synchronize Overleaf projects from and to your
 
 ## How To Use
 ### Install
-The package is available via [PyPI](https://pypi.org/project/overleaf-sync/). Just run:
+The package is available via [PyPI](https://pypi.org/project/overleaf-sync-ce/). Just run:
 
 ```
-moritz@github:~/test$ pip3 install overleaf-sync
+pip install overleaf-sync-ce
 ```
 
 That's it! Depending on your local Python installation, you might need to use `pip` instead of `pip3`.
 
 ### Prerequisites
-- Create your project on [Overleaf](https://www.overleaf.com/project), for example a project named `test`. Overleaf-sync is not able to create projects (yet).
+- Create your project on [Overleaf](https://www.overleaf.com/project), for example a project named `test`. overleaf-sync-ce is not able to create projects (yet).
 - Create a folder, preferably with the same name as the project (`test`) on your computer.
 - Execute the script from that folder (`test`).
-- If you do not specify the project name, overleaf-sync uses the current folder's name as the project name.
+- If you do not specify the project name, overleaf-sync-ce uses the current folder's name as the project name.
 
 ### Usage
 #### Login
 ```
-moritz@github:~/test$ ols login [--path]
+$ ols login [--path]
 Login successful. Cookie persisted as `.olauth`. You may now sync your project.
 ```
 
@@ -45,7 +47,7 @@ Keep the `.olauth` file save, as it can be used to log in into your account.
 
 ### Listing all projects
 ```
-moritz@github:~/test$ ols list [--store-path -v/--verbose]
+$ ols list [--store-path -v/--verbose]
 10/31/2021, 01:23:45 - Project A
 09/21/2020, 01:23:45 - Project B
 08/11/2019, 01:23:45 - Project C
@@ -56,14 +58,14 @@ Use `ols list` to conveniently list all projects in your account available for s
 
 ### Downloading project's PDF
 ```
-moritz@github:~/test$ ols download [--name --download-path --store-path -v/--verbose]
+$ ols download [--name --download-path --store-path -v/--verbose]
 ```
 
 Use `ols download` to compile and download your project's PDF. Specify a download path if you do not want to store the PDF file in the current folder. Currently only downloads the first PDF file it finds.
 
 ### Syncing
 ```
-moritz@github:~/test$ ols [-l/--local-only -r/--remote-only --store-path -p/--path -i/--olignore]
+$ ols [-l/--local-only -r/--remote-only --store-path -p/--path -i/--olignore]
 ```
 
 Just calling `ols` will two-way sync your project. When there are changes both locally, and remotely you will be asked which file to keep. Using the `-l` or `-r` option you can specify to either sync local project files to Overleaf only or Overleaf files to local ones only respectively. When using these options you can also sync deleted files. If a file has been deleted it can either be deleted on the target (remote when `-l`, local when `-r`) as well, restored on the source (local when `-l`, remote when `-r`) or ignored.

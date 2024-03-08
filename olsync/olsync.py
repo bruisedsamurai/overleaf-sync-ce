@@ -47,7 +47,7 @@ except ImportError:
 @click.option('-u', '--ce-url', 'ce_url', default="",
               help="Base url for Community Edition (CE) server. Uses this if .olce file is not present")
 @click.option('-v', '--verbose', 'verbose', is_flag=True, help="Enable extended error logging.")
-@click.version_option(package_name='overleaf-sync')
+@click.version_option(package_name='overleaf-sync-ce')
 @click.pass_context
 def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path, ce_url, verbose):
     if ctx.invoked_subcommand is None:
