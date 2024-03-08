@@ -15,6 +15,7 @@ import json
 import uuid
 from socketIO_client import SocketIO
 import time
+import re
 
 PATH_SEP = "/"  # Use hardcoded path separator for both windows and posix system
 
@@ -52,7 +53,7 @@ class OverleafClient(object):
         self._UPLOAD_URL = self._BASE_URL + "/project/{}/upload"  # The URL to upload files
         self._FOLDER_URL = self._BASE_URL + "/project/{}/folder"  # The URL to create folders
         self._COMPILE_URL = self._BASE_URL + "/project/{}/compile?enable_pdf_caching=true"  # The URL to compile the project
-        self._DELETE_URL = self._BASE_URL + "/project/{}/doc/{}"  # The URL to delete files
+        self._DELETE_URL = self._BASE_URL + "/project/{}/{}/{}"  # The URL to delete files
 
     def login(self, username, password):
         """
@@ -100,7 +101,8 @@ class OverleafClient(object):
         bsoup = BeautifulSoup(projects_page.content, 'html.parser')
         projects_txt = bsoup.find('meta', {'name': 'ol-projects'})
         if projects_txt is None:
-            projects_txt = bsoup.find('meta', {'name': 'ol-prefetchedProjectsBlob'})
+            projects_txt = bsoup.find('meta', {'name': 'ol-prefetchedProjectsBlob'}) 
+            #{"content": re.compile('\{.*"projects".*\}')}
         
         if projects_txt is None:
             if "Log in to Overleaf" in bsoup.text:
@@ -120,16 +122,10 @@ class OverleafClient(object):
         """
 
         projects_page = reqs.get(self._PROJECT_URL, cookies=self._cookie)
-        try:
-            json_content = json.loads(
-                BeautifulSoup(projects_page.content, 'html.parser').find('meta', {'name': 'ol-projects'}).get('content'))
-        except:
-            json_content = json.loads(
-                BeautifulSoup(projects_page.content, 'html.parser').find('meta', {'name': 'ol-prefetchedProjectsBlob'}).get('content')) 
-        project= next(OverleafClient.filter_projects(json_content["projects"], {"name": project_name}), None)
-        if project is None:
-            raise ValueError(f"Project {project_name} not found")
-        return project
+
+        json_content = json.loads(
+             BeautifulSoup(projects_page.content, 'html.parser').find("meta", {"content": re.compile('\{.*"projects".*\}')}).get('content'))
+        return next(OverleafClient.filter_projects(json_content['projects'], {"name": project_name}), None)
 
     def download_project(self, project_id):
         """
@@ -232,6 +228,8 @@ class OverleafClient(object):
         # The file name contains path separators, check folders
         if PATH_SEP in file_name:
             local_folders = file_name.split(PATH_SEP)[:-1]  # Remove last item since this is the file name
+            file_name = file_name.split(PATH_SEP)[-1]
+
             current_overleaf_folder = project_infos['rootFolder'][0]['folders']  # Set the current remote folder
 
             for local_folder in local_folders:
@@ -249,23 +247,31 @@ class OverleafClient(object):
                     current_overleaf_folder.append(new_folder)
                     folder_id = new_folder['_id']
                     current_overleaf_folder = new_folder['folders']
+        headers = {
+            "X-Csrf-Token": self._csrf
+        }
         params = {
             "folder_id": folder_id,
-            "_csrf": self._csrf,
-            "qquuid": str(uuid.uuid4()),
-            "qqfilename": file_name,
-            "qqtotalfilesize": file_size,
+            # "_csrf": self._csrf,
+            # "qquuid": str(uuid.uuid4()),
+            # "qqfilename": file_name,
+            # "qqtotalfilesize": file_size,
+        }
+        form_data = {
+            # "relativePath" : "null",
+            # "type": "application/octet-stream",
+            "name": file_name,
         }
         files = {
             "qqfile": file
         }
 
         # Upload the file to the predefined folder
-        r = reqs.post(self._UPLOAD_URL.format(project_id), cookies=self._cookie, params=params, files=files)
-        ret = r.status_code == str(200) and json.loads(r.content)["success"]
-        if ret is False:
-            raise Exception(f"Failed to upload file {file_name} (code {r.status_code})")
-        return ret
+        r = reqs.post(self._UPLOAD_URL.format(project_id), cookies=self._cookie, 
+            headers=headers, params=params, data=form_data, files=files)
+        
+        # return json.loads(r.content), r.status_code
+        return r.status_code == 200 and json.loads(r.content)["success"]
 
     def delete_file(self, project_id, project_infos, file_name):
         """
@@ -279,6 +285,7 @@ class OverleafClient(object):
         """
 
         file = None
+        type_ = "doc"
 
         # The file name contains path separators, check folders
         if PATH_SEP in file_name:
@@ -288,13 +295,23 @@ class OverleafClient(object):
             for local_folder in local_folders:
                 for remote_folder in current_overleaf_folder:
                     if local_folder.lower() == remote_folder['name'].lower():
+
                         file = next((v for v in remote_folder['docs'] if v['name'] == file_name.split(PATH_SEP)[-1]),
                                     None)
+                        if file is None:
+                            file = next((v for v in remote_folder['fileRefs'] if v['name'] == file_name.split(PATH_SEP)[-1]),
+                                    None)
+                            type_ = "file"
+
                         current_overleaf_folder = remote_folder['folders']
                         break
         # File is in root folder
         else:
             file = next((v for v in project_infos['rootFolder'][0]['docs'] if v['name'] == file_name), None)
+            if file is None:
+                file = next((v for v in project_infos['rootFolder'][0]['fileRefs'] if v['name'] == file_name.split(PATH_SEP)[-1]),
+                        None)
+                type_ = "file"
 
         # File not found!
         if file is None:
@@ -304,10 +321,11 @@ class OverleafClient(object):
             "X-Csrf-Token": self._csrf
         }
 
-        r = reqs.delete(self._DELETE_URL.format(project_id, file['_id']), cookies=self._cookie, headers=headers,
-                        json={})
+        r = reqs.delete(DELETE_URL.format(project_id, type_, file['_id']), 
+            cookies=self._cookie, headers=headers, json={})
 
-        return r.status_code == str(204)
+        # return r.content, r.status_code 
+        return r.status_code == (204)
 
     def download_pdf(self, project_id):
         """
