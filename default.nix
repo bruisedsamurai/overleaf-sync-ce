@@ -1,11 +1,29 @@
-{ pkgs ? import <nixpkgs> {}
+{ 
+ pkgs ? import <nixos-unstable> { }
 , lib ? pkgs.lib
 , python3Packages ? pkgs.python3Packages
 , fetchPypi ? pkgs.fetchPypi
 , nixosTests ? pkgs.nixosTests
 }:
+let
+  yaspin = python3Packages.yaspin.overrideAttrs (oldAttrs: {
+    checkPhase = ''
+      # Remove the tests, they are not in the pypi package
+      rm -rf tests
+    '';
+  });
 
-python3Packages.buildPythonPackage rec {
+  socketio-client = python3Packages.socketio-client.overrideAttrs (oldAttrs: {
+      version = "0.5.7.2";
+      src = fetchPypi {
+        version = "0.5.7.2";
+        pname = "socketIO-client";
+        sha256 = "sha256-i6BLzI2HVt1RGsQCFfsVWqEbYPAW/P/J5E+rNp4h5XU=";
+      };
+  });
+
+in
+pkgs.python3Packages.buildPythonPackage rec {
   pname = "overleaf-sync-ce";
   version = "2.0.0";
   format = "pyproject";
@@ -19,19 +37,19 @@ python3Packages.buildPythonPackage rec {
   src = ./.;
 
 
-  nativeBuildInputs = with python3Packages; [
-    build
+  nativeBuildInputs = [
+    pkgs.python3Packages.build
   ];
 
-  propagatedBuildInputs = with python3Packages; [
-    click
-    requests
-    pyside6
-    beautifulsoup4
+  propagatedBuildInputs = [
+    pkgs.python3Packages.click
+    pkgs.python3Packages.requests
+    pkgs.python3Packages.pyside6
+    pkgs.python3Packages.beautifulsoup4
     yaspin
-    python-dateutil
+    pkgs.python3Packages.python-dateutil
     socketio-client
-    flit
+    pkgs.python3Packages.flit
   ];
 
   # tests are not in pypi package
