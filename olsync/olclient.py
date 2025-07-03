@@ -120,12 +120,26 @@ class OverleafClient(object):
         Params: project_name, the name of the project
         Returns: project object
         """
-
         projects_page = reqs.get(self._PROJECT_URL, cookies=self._cookie)
+        soup = BeautifulSoup(projects_page.content, 'html.parser')
 
-        json_content = json.loads(
-             BeautifulSoup(projects_page.content, 'html.parser').find("meta", {"content": re.compile('\{.*"projects".*\}')}).get('content'))
-        return next(OverleafClient.filter_projects(json_content['projects'], {"name": project_name}), None)
+        meta = soup.find('meta', {'name': 'ol-projects'})
+        if meta is None:
+            meta = soup.find('meta', {'name': 'ol-prefetchedProjectsBlob'})
+
+        if meta is None:
+            if "Log in to Overleaf" in soup.text:
+                raise ValueError("Not logged in")
+            raise ValueError("Could not locate projects JSON meta tag")
+
+        json_content = json.loads(meta.get('content'))
+        return next(
+            OverleafClient.filter_projects(
+                json_content['projects'],
+                {"name": project_name}
+            ),
+            None
+        )
 
     def download_project(self, project_id):
         """
