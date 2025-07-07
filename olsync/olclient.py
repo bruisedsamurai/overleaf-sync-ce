@@ -43,8 +43,8 @@ class OverleafClient(object):
             self._ce = True
             self._BASE_URL = ce_url
         else:
+            self._ce = False
             self._BASE_URL = "https://www.overleaf.com"  # The Overleaf Base URL
-            self._ce = True
 
         self._LOGIN_URL = self._BASE_URL + "/login"
         self._PROJECT_URL = self._BASE_URL + "/project"  # The dashboard URL
@@ -199,8 +199,10 @@ class OverleafClient(object):
             project_infos = project_infos_dict
 
         # Convert cookie from CookieJar to string
-        cookie = f"GCLB={self._cookie['GCLB']}; overleaf_session2={self._cookie['overleaf_session2']}" if not self._ce \
-            else f"sharelatex.sid={self._cookie['sharelatex.sid']}"
+        if self._ce:
+            cookie = f"sharelatex.sid={self._cookie['sharelatex.sid']}"
+        else:
+            cookie = f"GCLB={self._cookie['GCLB']}; overleaf_session2={self._cookie['overleaf_session2']}"
 
         # Connect to Overleaf Socket.IO, send a time parameter and the cookies
         socket_io = SocketIO(
